@@ -36,11 +36,12 @@ class TimingMiddleware:
                 instance["http_status_code"] = response["status"]
             return send(response)
 
-        if scope["type"] != "http":
+        if scope["type"] != "http" and scope["type"] != "websocket":
             alog.debug(f"ASGI scope of type {scope['type']} is not supported yet")
             await self.app(scope, receive, send)
             return
 
+        print(scope)
         try:
             metric_name = self.metric_namer(scope)
         except AttributeError as e:
@@ -52,10 +53,13 @@ class TimingMiddleware:
             return
 
         def emit(stats):
-            statsd_tags = [
-                f"http_status:{instance['http_status_code']}",
-                f"http_method:{scope['method']}",
-            ]
+            statsd_tags = []
+            if scope['type'] == 'http':
+                statsd_tags.append(f"http_status:{instance['http_status_code']}")
+                statsd_tags.append(f"http_method:{scope['method']}")
+            if scope['type'] == 'websocket':
+                print(scope)
+                statsd_tags.append(f"websocket_status:undefined")
             self.client.timing(
                 f"{metric_name}", stats.time, tags=statsd_tags + ["time:wall"]
             )
